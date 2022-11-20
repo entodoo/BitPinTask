@@ -1,3 +1,26 @@
+#TEST
+python3 -m venv venv
+
+source venv/bin/activate
+
+cd app
+
+pip install -r requrment.txt
+
+cd BitPinTask/app/app/settings/
+
+mv local.py.dist local.py
+
+python manage.py migrate
+
+python manage.py createsuperuser
+
+python manage.py runserver 
+
+Enjoy !
+
+
+# PRODUCTION
 # BitPinTask
 Base Themplate for django rest framework
 http://docs.gunicorn.org/en/stable/deploy.html
