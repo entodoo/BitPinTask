@@ -7,7 +7,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 router = routers.DefaultRouter()
-# router.register('subject', views.SubjectViewSet, basename='subject')
+router.register('article', views.ArticleViewSet, basename='article')
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -15,7 +15,6 @@ urlpatterns = [
     path('profile/', views.ProfileView.as_view(), name='profile'),
     path('register-request-code/', views.RegisterRequestCodeView.as_view(), name='register-request-code'),
     path('login/', obtain_auth_token, name="login"),
-#     path('toggle-sim-bookmark/<int:sim_id>/', views.ToggleSimBookmarkView.as_view(), name="toggle-sim-bookmark"),
     path('register-request-code-verification/', views.RegisterRequestCodeVerificationView.as_view(),
          name='register-request-code-verification'),
     path('reset-password-request/', views.ResetPasswordRequestView.as_view(), name='reset-password-request'),
@@ -27,4 +26,5 @@ urlpatterns = [
     path('login-request-code-verification/', views.LoginRequestCodeVerificationView.as_view(),
          name='login-request-code-verification'),
     path('check-user-exist/', views.checkUserExistView.as_view(), name='check-user-exist'),
+    path('pointed/<int:article_id>/', views.PointView.as_view(), name='pointed-user'),
 ]

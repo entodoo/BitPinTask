@@ -1,44 +1,14 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import viewsets
 from rest_framework import generics
 from drf_yasg.utils import swagger_auto_schema
-from django.db.models import Q
-from rest_framework.serializers import ValidationError
-from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
-from django.db.models import Value
-from rest_framework.authtoken.models import Token
-
-from .util.authentication import CustomTokenAuthentication
-from .util.date import date, greDatetime, to_jalali_weekday
-
-from functools import reduce
-from operator import or_
-
 from . import serializers
 from . import models
-from .util.extend import StandardResultsSetPagination, RetrieveListViewSet, raise_not_field_error, \
-    CreateRetrieveListUpdateDeleteViewSet, RetrieveListDeleteViewSet
-from .util.helper import play_filtering_form
+from .util.extend import StandardResultsSetPagination, RetrieveListViewSet
 from .util.mixin import IsAuthenticatedPermission
-import math
 from itertools import chain
-import random
-import datetime
-import os
-import json
-from types import SimpleNamespace
-from rest_framework.parsers import JSONParser
-from dateutil.relativedelta import *
-from rest_framework.renderers import TemplateHTMLRenderer
-from rest_framework.renderers import JSONRenderer
-from wkhtmltopdf.views import PDFTemplateResponse
-from rest_framework.parsers import MultiPartParser, FormParser
-import uuid
-from django.conf import settings
-from django.apps import apps
-
+from django.shortcuts import get_object_or_404
 
 
 class RegistrationView(APIView):
@@ -111,78 +81,6 @@ class ResetPasswordView(generics.CreateAPIView):
     serializer_class = serializers.ResetPasswordSerializer
 
 
-def my_filter(queryset, selfs):
-    query_params = selfs.request.query_params
-    request = selfs.request
-    user = request.user
-    queryset_filtering = models.Sim()
-    for param in query_params:
-        value = query_params.get(param)
-
-        if not value:
-            continue
-        if value == 'None':
-            value = None
-        if param == 'my_own_sim':
-            aceess_query = models.SimAccessList.objects.filter(user=user)
-            grade_query = models.Grade.objects.filter(pk__in=aceess_query)
-            subject_query = models.Subject.objects.filter(pk__in=aceess_query)
-            queryset = queryset.filter(grade__in=grade_query, subject__in=subject_query)
-            # for query in queryset:
-            # is_for_me = models.Sim.is_subscribed(query,user)
-            # if not is_for_me:
-            #     queryset_filtering.clea
-            # aceess_query = models.AccessList(user=user)    
-            # queryset = queryset.filter(models.Sim.pk.in(access))
-
-    return queryset
-
-
-class FileView(IsAuthenticatedPermission, APIView):
-    parser_classes = (MultiPartParser, FormParser)
-
-    def post(self, request, *args, **kwargs):
-        data = request.data
-        max_d = settings.SITE_SETTINGS['MAX_UPLOADED_SIM_REPORT_IMG']
-        sim_id = self.request.data.get('sim')
-        sim = models.SimReportImg.objects.filter(sim=sim_id, user=self.request.user)
-        if sim.count() >= max_d:
-            return Response({
-                "details": 'شما به حداکثر تعداد اپلود تصویر برای این ازمایش رسیده اید درصورت نیاز یک تصویر را حذف کنید !'},
-                status=status.HTTP_400_BAD_REQUEST)
-        if not request.FILES:
-            return Response({"details": 'فایلی ارسال نشده'}, status=status.HTTP_400_BAD_REQUEST)
-        for f in request.FILES.getlist('img_addr'):
-            data['img_addr'] = f
-            file_serializer = serializers.SimReportImgSerializer(data=data)
-            if file_serializer.is_valid():
-                file_serializer.save(user=self.request.user)
-            else:
-                return Response(file_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        sim_img = models.SimReportImg.objects.filter(user=self.request.user, sim=self.request.data.get('sim'))
-        sim_img_serializer = serializers.SimReportImgSerializer(sim_img, many=True)
-        return Response(sim_img_serializer.data, status=status.HTTP_201_CREATED)
-
-    def delete(self, request, *args, **kwargs):
-        img_id = self.request.data.get('img')
-        img = models.SimReportImg.objects.filter(id=img_id).first()
-        if img:
-            if img.user != request.user:
-                raise_not_field_error('شما نمیتوانید این فایل را حذف کنید')
-            if img.img_addr:
-                img.img_addr.delete()
-            img.delete()
-            return Response(status=status.HTTP_200_OK)
-        return Response({"details": 'فایلی ارسال نشده'}, status=status.HTTP_400_BAD_REQUEST)
-
-    def get(self, request, sim_id):
-        sim = sim_id
-        user = self.request.user
-        img = models.SimReportImg.objects.filter(sim=sim, user=user).all()
-        sim_img_serializer = serializers.SimReportImgSerializer(img, many=True)
-        return Response(sim_img_serializer.data, status=status.HTTP_200_OK)
-
-
 class ChangePasswordView(IsAuthenticatedPermission, APIView):
 
     def put(self, request, *args, **kwargs):
@@ -213,3 +111,24 @@ class LoginRequestCodeVerificationView(generics.CreateAPIView):
 
 class checkUserExistView(generics.CreateAPIView):
     serializer_class = serializers.checkUserSerializer
+
+
+class ArticleViewSet(IsAuthenticatedPermission, RetrieveListViewSet):
+    serializer_class = serializers.ArticleSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        queryset = models.Article.objects.all()
+        return queryset
+        
+
+class PointView(IsAuthenticatedPermission, APIView):
+    def post(self, request, article_id, *args, **kwargs):
+        article = get_object_or_404(models.Article, pk=article_id)
+        score = self.request.query_params.get('score', None)
+        if score and 0 <= int(score)<=5:
+            article.pointed(request, int(score))
+            return Response(status.HTTP_200_OK)
+        return Response({"score": 'یک عدد بین ۰ تا ۵ انتخاب کنید'}, status.HTTP_400_BAD_REQUEST)
+
+

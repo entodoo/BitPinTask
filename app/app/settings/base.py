@@ -119,7 +119,6 @@ USE_L10N = True
 USE_TZ = True
 
 SITE_SETTINGS = {
-    'MAX_UPLOADED_SIM_REPORT_IMG': 5,
     'CHECK_ONLINE_TIME': 6,  # Req per Minutes to check user activity
 }
 
@@ -157,17 +156,6 @@ STATIC_ROOT = 'path.to.your.static.directory'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = '/media/'
-
-ZARINPAL = {
-    'WEB_GATE_URL': 'https://sandbox.zarinpal.com/pg/StartPay/',
-    'WEBSERVICE_URL': 'https://sandbox.zarinpal.com/pg/services/WebGate/wsdl',
-    'VERIFY_URL': 'https://sandbox.zarinpal.com/pg/v4/payment/verify.json',
-}
-WKHTMLTOPDF_CMD = '/usr/local/bin/wkhtmltopdf'
-REDIRECT_URL = {
-    'EDUCATION_URL': 'https://dev.base.ir/student/my-financial-list',
-    'USER_URL': 'https://dev.base.ir/student/my-sims',
-}
 
 LOGGING = {
     'version': 1,

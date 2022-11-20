@@ -12,14 +12,13 @@ from rest_framework.authtoken.models import Token
 from core.util.helper import get_ip
 from core.util.requestMiddleware import RequestMiddleware
 from django.apps import apps
-from . import model_choices
-import uuid
-import os
-import datetime
+
 from rest_framework.serializers import ValidationError
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
-import binascii
+from mdeditor.fields import MDTextField
+from django.shortcuts import get_object_or_404
+from django.utils.timezone import now
 
 
 class TrackModel(models.Model):
@@ -215,18 +214,6 @@ class ChangeLogWithTrackModel(models.Model):
         return super(ChangeLogWithTrackModel, self).delete()
 
 
-def get_file_path(instance, filename):
-    ext = filename.split('.')[-1]
-    ext = ext.lower()
-    if ext in ['jpg', 'png', 'jpeg']:
-        filename = "%s.%s" % (uuid.uuid4(), ext)
-        now = datetime.datetime.now()
-        now.year, now.month
-        return "sim/{year}/{month}/{name}".format(year=now.year, month=now.month, name=filename)
-    else:
-        raise ValidationError("فقط فرمت های  jpeg, png , jpg قابل قبول هستند !")
-
-
 class UserMeta(models.Model):
     """User Meta To add extra details to user"""
 
@@ -234,31 +221,11 @@ class UserMeta(models.Model):
         verbose_name = "ویژگی کاربر"
         verbose_name_plural = "ویژگی کاربران"
 
-    GENDER_MALE = 0
-    GENDER_FEMALE = 1
-    GENDER_UNKNOWN = 2
-    GENDER_CHOICES = (
-        (GENDER_MALE, 'پسر'),
-        (GENDER_FEMALE, 'دختر'),
-        (GENDER_UNKNOWN, 'نامعلوم'),
-    )
-
-    TYPE_STUFF = 0
-    TYPE_STUDENT = 1
-    TYPE_TEACHER = 2
-    TYPE_CHOICES = (
-        (TYPE_STUFF, 'نامعلوم'),
-        (TYPE_STUDENT, 'دانش آموز'),
-        (TYPE_TEACHER, 'معلم'),
-    )
 
     nid = models.CharField(max_length=20, null=True, unique=True)
     phone = models.CharField(max_length=11, null=True, unique=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    img_addr = models.FileField(upload_to=get_file_path, null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-    gender = models.SmallIntegerField(choices=GENDER_CHOICES, default=GENDER_UNKNOWN, null=True)
-    type = models.IntegerField(choices=TYPE_CHOICES, default=TYPE_STUFF, null=True)
 
     def __str__(self):
         return self.phone
@@ -542,3 +509,84 @@ class MyAccountManager(BaseUserManager):
 def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:
         Token.objects.create(user=instance)
+
+
+class Article(TrackModel):
+
+    title = models.CharField('title', max_length=200, unique=True)
+    body = models.TextField('text')
+    pub_time = models.DateTimeField(
+        'release_time', blank=False, null=False, default=now)
+    score = models.PositiveIntegerField('point', default=0)
+    count_scorer = models.PositiveIntegerField('count_pointed', default=0)
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name='author',
+        blank=False,
+        null=False,
+        on_delete=models.CASCADE)
+
+    def body_to_string(self):
+        return self.body
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name = "مقاله"
+        verbose_name_plural = verbose_name
+        get_latest_by = 'id'
+
+    def get_point(self):
+        if self.request.user:
+            point = get_object_or_404(Point, author=self.request.user, article=self)
+            if point:
+                return point.score
+        return self.score
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+    def pointed(self, request, user_score):
+        if request.user:
+            user_point = Point.objects.filter(author=request.user, article=self)
+            if user_point:
+                prev_score = user_point.first().score
+                difference = user_score - prev_score
+                user_point.update(score=user_score)
+                self.score = (self.score * self.count_scorer + difference) / (self.count_scorer)
+                self.save(update_fields=['score'])
+            else:
+                Point.objects.create(author=request.user, article=self, score=user_score)
+                self.score = (self.score * self.count_scorer + user_score) / (self.count_scorer + 1)
+                self.count_scorer += 1
+                self.save(update_fields=['score', 'count_scorer'])
+                
+            
+                
+      
+
+
+
+
+class Point(TrackModel):
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name='author',
+        on_delete=models.CASCADE)
+    article = models.ForeignKey(
+        Article,
+        verbose_name='article',
+        on_delete=models.CASCADE)
+    score = models.PositiveIntegerField('score', default=0) 
+
+    class Meta:
+        verbose_name = "امتیاز"
+        verbose_name_plural = verbose_name
+        get_latest_by = 'id'
+
+    def __str__(self):
+        return self.author.username
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)

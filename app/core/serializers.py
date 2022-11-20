@@ -14,7 +14,7 @@ from django.templatetags.static import static
 import math
 from hashids import Hashids
 from rest_framework.authtoken.models import Token
-
+from .models import Article, Point
 map_iran_fields(serializers, models)
 
 
@@ -150,31 +150,11 @@ class UserMetaSerializer(serializers.ModelSerializer):
         hashids = Hashids(min_length=settings.HASHIDS['MIN_LENGTH'], alphabet=settings.HASHIDS['ALPHABET'])
         request = self.context.get('request')
         data = super(UserMetaSerializer, self).to_representation(instance)
-        data['point'] = instance.calculate_point(user=instance.user)
-        data['count_unread_message'] = instance.calculate_unread_message(user=instance.user)
-        data['defult_profile'] = settings.STATIC_URL + "core/img/" + str(instance.gender) + ".jpg"
-        data['invitation_code'] = hashids.encode(instance.user.id)
-        # data['gender'] = None
-        # try:
-        #     acc_list = instance.user.accesslist
-        # except:
-        #     return data
-        # gender = None
-        # if acc_list:
-        #     for tk_sim in acc_list.token_sim.all():
-        #         if tk_sim.contract.education:
-        #             gender = tk_sim.contract.education.gender
-        #             break
-        # data['gender'] = gender
         return data
 
     def update(self, instance, validated_data):
         return super(UserMetaSerializer, self).update(instance, validated_data)
 
-    # def validate_phone(self, value):
-    #     if UserMeta.objects.filter(phone=value).exclude(id=self.context.get('request').user.usermeta.id).exists():
-    #         raise serializers.ValidationError("شماره موبایل قبلا در سیستم ثبت شده است.")
-    #     return value
 
     def validate_nid(self, value):
         if UserMeta.objects.filter(nid=value).exclude(user=self.context.get('request').user).exists():
@@ -396,3 +376,21 @@ class checkUserSerializer(serializers.Serializer):
         if not UserMeta.objects.filter(phone=phone).exists():
             raise serializers.ValidationError("کاربری با این شماره تلفن همراه ثبت نشده است .")
         return attrs
+
+
+class ArticleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Article
+        fields = ['title', 'body', 'score', 'count_scorer']
+        extra_kwargs = {
+            'id': {'read_only': True},
+        }
+
+
+class PointSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Article
+        fields = '__all__'
+        extra_kwargs = {
+            'id': {'read_only': True},
+        }

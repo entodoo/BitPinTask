@@ -15,8 +15,6 @@ docs/_build/
 # PyBuilder
 target/
 
-data/
-
 ### Django ###
 *.log
 *.pot
@@ -30,7 +28,7 @@ venv/
 
 **/.idea/*
 **/**/*.swp
-**/migrations/*
+# **/migrations/*
 **/__pycache__/*
 .DS_Store
 **/media/**
